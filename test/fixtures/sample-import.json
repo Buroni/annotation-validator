@@ -1,0 +1,180 @@
+{
+  "images": [
+    {
+      "id": "frame-001",
+      "width": 640,
+      "height": 480
+    },
+    {
+      "id": "frame-002",
+      "width": 200,
+      "height": 100
+    },
+    {
+      "id": "frame-003",
+      "width": 320,
+      "height": 240
+    }
+  ],
+  "allowed_labels": [
+    "instrument",
+    "grasper",
+    "tissue",
+    "organ",
+    "reference_marker"
+  ],
+  "label_subsets": [
+    [
+      "instrument",
+      "grasper"
+    ],
+    [
+      "tissue",
+      "organ"
+    ]
+  ],
+  "annotations": [
+    {
+      "id": "annotation-001",
+      "image_id": "frame-001",
+      "label": "instrument",
+      "box": {
+        "x": 10.5,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-002",
+      "image_id": "frame-002",
+      "label": "tissue",
+      "box": {
+        "x": 150,
+        "y": 80,
+        "width": 50,
+        "height": 20
+      }
+    },
+    {
+      "id": "annotation-003",
+      "image_id": "frame-missing",
+      "label": "instrument",
+      "box": {
+        "x": 10,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-004",
+      "image_id": "frame-001",
+      "label": "unsupported-label",
+      "box": {
+        "x": 10,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-005",
+      "image_id": "frame-001",
+      "box": {
+        "x": 10,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-006",
+      "image_id": "frame-001",
+      "label": "instrument",
+      "box": {
+        "x": -5,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-007",
+      "image_id": "frame-001",
+      "label": "tissue",
+      "box": {
+        "x": 10,
+        "y": 20,
+        "width": 0,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-008",
+      "image_id": "frame-002",
+      "label": "instrument",
+      "box": {
+        "x": 180,
+        "y": 80,
+        "width": 30,
+        "height": 20
+      }
+    },
+    {
+      "id": "annotation-009",
+      "image_id": "frame-001",
+      "label": "instrument",
+      "box": {
+        "x": "10",
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-010",
+      "image_id": "frame-001",
+      "label": "grasper",
+      "box": {
+        "x": 120,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-011",
+      "image_id": "frame-001",
+      "label": "tissue",
+      "box": {
+        "x": 230,
+        "y": 20,
+        "width": 100,
+        "height": 50
+      }
+    },
+    {
+      "id": "annotation-012",
+      "image_id": "frame-002",
+      "label": "organ",
+      "box": {
+        "x": 20,
+        "y": 10,
+        "width": 50,
+        "height": 20
+      }
+    },
+    {
+      "id": "annotation-013",
+      "image_id": "frame-002",
+      "label": "reference_marker",
+      "box": {
+        "x": 80,
+        "y": 10,
+        "width": 10,
+        "height": 10
+      }
+    }
+  ]
+}
