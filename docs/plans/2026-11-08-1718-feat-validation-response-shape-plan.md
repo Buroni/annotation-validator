@@ -39,7 +39,7 @@ Validation errors come in two internal kinds: type errors (a field has the wrong
 
 - **Frozen `dataclass`, not `TypedDict`.** With no external dependencies there is no static type checker to enforce a `TypedDict`, while a dataclass fails at construction on a missing field. Governs R3. (session-settled: user-approved — chosen over `TypedDict`: no type checker runs in a stdlib-only project, so `TypedDict` would be unchecked)
 - **The server writes the final message text.** The front-end displays it as-is. Governs R2. (session-settled: user-directed — chosen over front-end-owned wording from codes, and over code plus default message: the front-end should not own error copy)
-- **Flat list, no placement metadata.** The message itself identifies the record; several problems on one record are separate entries. Governs R1, R6. (session-settled: user-directed — chosen over errors attached to a record or a field: a flat list is enough for now, and a pointer field can be added later without breaking clients)
+- **Flat list; each error carries the record's 0-based `index`.** Several problems on one record are separate entries. `index` lets tests (and later the front-end) match an error to its record without parsing the message; it is `null` for errors not tied to one record. Governs R1, R2, R6. (session-settled: user-directed — chosen over errors attached to a record or a field: a flat list is enough for now; `index` added during PR review, 0-based and sent in the response, both user-approved)
 - **Type vs content stays internal.** The response carries no kind field. Governs R4. (session-settled: user-directed — chosen over exposing the kind for the front-end or for information: the split organises validator code, not the UI)
 - **Records are named by 1-based position only.** One rule covers missing, empty, wrong-type and duplicate `id`s. Governs R5. (session-settled: user-approved — chosen over id-with-position-fallback and over id plus position: simplest single rule; adding the id to the text later does not change the shape)
 - **Stage 2 returns the real body.** The front-end can integrate now. Governs R1, R7. (session-settled: user-directed — chosen over defining types only and keeping an empty 200)
@@ -52,7 +52,7 @@ Validation errors come in two internal kinds: type errors (a field has the wrong
 **Response shape**
 
 - R1. When the request body is valid JSON, the endpoint returns 200 with a JSON body: an object containing a list of validation errors, which is empty when the file passed.
-- R2. Each validation error carries a user-facing message, written by the server and ready to display, and a short stable code that users never see and tests can assert on.
+- R2. Each validation error carries a user-facing message, written by the server and ready to display; a short stable code that users never see and tests can assert on; and the 0-based `index` of the record it concerns, or `null` when it concerns no single record.
 - R3. The error and the response are defined as frozen dataclass types, and `validate()` is typed to return a list of the error type.
 - R4. The response carries no type/content kind and no separate pass/fail flag.
 
@@ -73,13 +73,13 @@ Validation errors come in two internal kinds: type errors (a field has the wrong
 - AE2. **Covers R7.** **Given** a truncated JSON body, **when** it is POSTed, **then** the response is 400 with no body.
 - AE3. **Covers R7.** **Given** a POST with no `Content-Length` header, **when** the body is read as empty, **then** the response is 400 with no body (stage 1 returned 200 here).
 - AE4. **Covers R8, R9.** **Given** the body `[]`, **when** it is POSTed, **then** the response is 200 with an empty error list in stage 2.
-- AE5. **Covers R2, R3.** **Given** an error built with a code and a message inside a response, **when** it is serialized, **then** the JSON holds exactly those values, and building an error without a message fails immediately.
+- AE5. **Covers R2, R3.** **Given** an error built with a code, a message and an index inside a response, **when** it is serialized, **then** the JSON holds exactly those values, and building an error without a message or an index fails immediately.
 - AE6. **Covers R7, R9.** **Given** a body such as `{"x": NaN}`, `{"x": Infinity}` or `{"x": -Infinity}`, **when** it is POSTed, **then** the response is 200 with an empty error list in stage 2.
 
 ### Scope Boundaries
 
 - Deferred to stage 3: the validation rules, the catalogue of error codes, and the exact message wording.
-- Deferred: warnings, machine-readable pointers to records or fields, and adding `id`s to message text.
+- Deferred: warnings, pointers to individual fields (beyond the record `index`), and adding `id`s to message text.
 - Unchanged: the 400 for a malformed or negative `Content-Length`; no routing (any path accepts POST, other methods get the default 501).
 - Considered and not built: an upload size limit. The prototype runs locally against fixture-sized files, so reading the whole body into memory is acceptable; a shared or hosted deployment would change that call.
 - Considered and not built: a reason in the 400 body. R7 fixes the 400 as bodiless; production support needs (telling encoding, syntax and truncation apart) would change that call.
@@ -96,7 +96,7 @@ Validation errors come in two internal kinds: type errors (a field has the wrong
 
 ### Key Technical Decisions
 
-- KTD1. **Wire names match field names: `{"errors": [{"code": ..., "message": ...}]}`.** Dataclass field names are the JSON keys, so serialization needs no mapping layer. The response stores its errors as a tuple so that "frozen" holds all the way down; `validate()` still returns a list per R3 and the handler converts it. Covers R1, R2, R3.
+- KTD1. **Wire names match field names: `{"errors": [{"code": ..., "message": ..., "index": ...}]}`.** Dataclass field names are the JSON keys, so serialization needs no mapping layer. The response stores its errors as a tuple so that "frozen" holds all the way down; `validate()` still returns a list per R3 and the handler converts it. Covers R1, R2, R3.
 - KTD2. **Types live in a new `annotation_validator/response.py`.** `validate.py` imports the error type from there, and the server imports both, so the HTTP layer and the validator share one definition without importing each other. `code` is a plain `str` until stage 3 defines a catalogue.
 - KTD3. **Parse with plain `json.loads` on the raw bytes.** Catching `ValueError` covers both `JSONDecodeError` and `UnicodeDecodeError`. Byte input keeps the standard library's encoding detection: UTF-8 (with or without a BOM), UTF-16 and UTF-32 parse; anything else is undecodable and gets the 400. Implements R7 and its Key Decisions.
 - KTD4. **Serialize with `dataclasses.asdict` then `json.dumps` with default settings.** The default `ensure_ascii=True` keeps the body ASCII, so a lone surrogate in a future message cannot fail encoding. The 200 sends `Content-Type: application/json` and an exact `Content-Length`.
@@ -137,14 +137,14 @@ flowchart TB
   - `test/test_response.py` (new)
   - `test/test_validate.py`
 - **Approach:**
-  1. Add the error type with `code` and `message` fields, and the response type holding a tuple of errors, both frozen dataclasses.
+  1. Add the error type with `code`, `message` and `index` (`int | None`, no default) fields, and the response type holding a tuple of errors, both frozen dataclasses.
   2. Annotate `validate()` to return a list of the error type; behavior stays `[]` (R9).
   3. Tighten the existing fixture test from "returns a list" to "returns an empty list".
 - **Patterns to follow:** Existing module layout in `annotation_validator/`; `unittest` with `subTest` as in `test/test_validate.py`.
 - **Test scenarios:**
-  - Covers AE5. A response holding one error with code `"example_code"` and message `"Example message"`, serialized per KTD4 and parsed back with `json.loads`, equals `{"errors": [{"code": "example_code", "message": "Example message"}]}`. Compare after the JSON round trip: `asdict` keeps the tuple, so its raw output does not equal a dict holding a list.
+  - Covers AE5. A response holding one error with code `"example_code"`, message `"Example message"` and index `30`, serialized per KTD4 and parsed back with `json.loads`, equals `{"errors": [{"code": "example_code", "message": "Example message", "index": 30}]}`. An error with `index=None` serializes `index` as `null`. Compare after the JSON round trip: `asdict` keeps the tuple, so its raw output does not equal a dict holding a list.
   - A response with no errors serializes to the JSON text `{"errors": []}`.
-  - Covers AE5. Building an error with only a code raises `TypeError`.
+  - Covers AE5. Building an error without a message, or without an index, raises `TypeError`.
   - Assigning to an existing error's `message` raises `dataclasses.FrozenInstanceError`.
   - `validate()` returns `[]` for `sample-import.json` and for `extended-import.json`.
 - **Verification:** The new and updated tests pass, and nothing in `annotation_validator/` depends on anything outside the standard library.

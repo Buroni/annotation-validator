@@ -5,6 +5,7 @@ from dataclasses import dataclass
 class ValidationError:
     code: str
     message: str
+    index: int | None
 
 
 @dataclass(frozen=True)
