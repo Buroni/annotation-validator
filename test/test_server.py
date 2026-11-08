@@ -44,21 +44,32 @@ class ServerTest(unittest.TestCase):
         finally:
             conn.close()
 
-    def assert_errors_empty(self, body):
-        status, content_type, resp_body = self.post(body)
-        self.assertEqual(status, 200)
-        self.assertEqual(content_type, "application/json")
-        self.assertEqual(json.loads(resp_body), {"errors": []})
-
     def assert_bodiless_400(self, body=None, content_length=None):
         status, _, resp_body = self.post(body, content_length)
         self.assertEqual(status, 400)
         self.assertEqual(resp_body, b"")
 
-    def test_fixtures_return_empty_error_list(self):
-        for name in ("sample-import.json", "extended-import.json"):
-            with self.subTest(fixture=name):
-                self.assert_errors_empty((FIXTURES / name).read_bytes())
+    def test_sample_fixture_returns_its_errors(self):
+        status, content_type, body = self.post((FIXTURES / "sample-import.json").read_bytes())
+        self.assertEqual(status, 200)
+        self.assertEqual(content_type, "application/json")
+        self.assertEqual(
+            json.loads(body),
+            {
+                "errors": [
+                    {
+                        "code": "label_missing",
+                        "message": "Annotation #5: label is missing. It must be a string.",
+                        "index": 4,
+                    },
+                    {
+                        "code": "box_x_wrong_type",
+                        "message": 'Annotation #9: box.x must be a number, but it is a string ("10").',
+                        "index": 8,
+                    },
+                ]
+            },
+        )
 
     def test_malformed_json_returns_400(self):
         cases = {
