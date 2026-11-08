@@ -56,6 +56,12 @@ class ServerTest(unittest.TestCase):
         self.assertEqual(
             json.loads(body),
             {
+                "summary": {
+                    "total": 13,
+                    "valid": 6,
+                    "invalid": 7,
+                    "invalid_indices": [2, 3, 4, 5, 6, 7, 8],
+                },
                 "errors": [
                     {
                         "code": "image_id_unknown",
@@ -94,7 +100,16 @@ class ServerTest(unittest.TestCase):
                         "message": 'Annotation #9: box.x must be a number, but it is a string ("10").',
                         "index": 8,
                     },
-                ]
+                ],
+                "warnings": [
+                    {
+                        "code": "label_subsets_conflict",
+                        "message": 'Frame "frame-001" has labels from 2 subsets that should not '
+                        'appear together: "instrument", "grasper" (subset ["instrument", '
+                        '"grasper"]) and "tissue" (subset ["tissue", "organ"]).',
+                        "image_id": "frame-001",
+                    }
+                ],
             },
         )
 
