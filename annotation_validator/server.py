@@ -12,14 +12,12 @@ def _reject_constant(name):
     raise ValueError(f"non-standard JSON constant: {name}")
 
 
-def parse_strict_json(body):
-    """Parse JSON bytes, rejecting NaN and Infinity; raise ValueError if malformed."""
+def _parse_strict_json(body):
     return json.loads(body, parse_constant=_reject_constant)
 
 
 class Handler(BaseHTTPRequestHandler):
     def _read_body(self):
-        """Return the request body, or None if Content-Length is invalid."""
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
@@ -46,7 +44,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_bad_request()
             return
         try:
-            payload = parse_strict_json(body)
+            payload = _parse_strict_json(body)
         except ValueError:
             self._send_bad_request()
             return
