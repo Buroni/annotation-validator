@@ -101,7 +101,15 @@ class ServerTest(unittest.TestCase):
                         "index": 8,
                     },
                 ],
-                "warnings": [],
+                "warnings": [
+                    {
+                        "code": "label_subsets_conflict",
+                        "message": 'Frame "frame-001" has labels from 2 subsets that should not '
+                        'appear together: "instrument", "grasper" (subset ["instrument", '
+                        '"grasper"]) and "tissue" (subset ["tissue", "organ"]).',
+                        "image_id": "frame-001",
+                    }
+                ],
             },
         )
 

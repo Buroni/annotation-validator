@@ -2,7 +2,7 @@ import json
 import unittest
 from pathlib import Path
 
-from annotation_validator.response import ValidationSummary
+from annotation_validator.response import ValidationSummary, ValidationWarning
 from annotation_validator.validate import validate
 
 FIXTURES = Path(__file__).parent / "fixtures"
@@ -70,6 +70,27 @@ class ValidateTest(unittest.TestCase):
             ValidationSummary(
                 total=64, valid=30, invalid=34, invalid_indices=tuple(range(29, 63))
             ),
+        )
+
+    def test_sample_fixture_warns_about_frame_001(self):
+        self.assertEqual(
+            validate(load_fixture("sample-import.json")).warnings,
+            (
+                ValidationWarning(
+                    code="label_subsets_conflict",
+                    message='Frame "frame-001" has labels from 2 subsets that should not appear '
+                    'together: "instrument", "grasper" (subset ["instrument", "grasper"]) and '
+                    '"tissue" (subset ["tissue", "organ"]).',
+                    image_id="frame-001",
+                ),
+            ),
+        )
+
+    def test_extended_fixture_warns_about_each_mixed_subsets_frame(self):
+        warnings = validate(load_fixture("extended-import.json")).warnings
+        self.assertEqual(
+            [warning.image_id for warning in warnings],
+            ["mixed-subsets-ab", "mixed-subsets-ac", "mixed-subsets-bc", "mixed-subsets-abc"],
         )
 
 

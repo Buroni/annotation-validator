@@ -1,4 +1,5 @@
 from annotation_validator.content_rules import build_lookups, check_annotation_content
+from annotation_validator.qa_rules import check_label_subsets
 from annotation_validator.response import ValidationResponse, ValidationSummary
 from annotation_validator.type_rules import check_annotation_types
 
@@ -23,4 +24,5 @@ def validate(payload) -> ValidationResponse:
         invalid=len(invalid_indices),
         invalid_indices=invalid_indices,
     )
-    return ValidationResponse(summary=summary, errors=tuple(errors), warnings=())
+    warnings = check_label_subsets(payload, set(invalid_indices))
+    return ValidationResponse(summary=summary, errors=tuple(errors), warnings=tuple(warnings))
