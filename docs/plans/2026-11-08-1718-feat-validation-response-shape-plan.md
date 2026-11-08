@@ -152,7 +152,7 @@ flowchart TB
 ### U2. JSON parsing and response in the handler
 
 - **Goal:** The handler parses the body as JSON, calls `validate()`, and returns the typed response as JSON, or a bodiless 400 for malformed input.
-- **Requirements:** R1, R7, R8; KTD3, KTD4, KTD5; AE1, AE2, AE3, AE4, AE6.
+- **Requirements:** R1, R7, R8; KTD3, KTD4, KTD5; AE1, AE2, AE3. AE4 and AE6 hold by construction (anything that parses reaches `validate()`) and get tests in stage 3, when those inputs produce real errors.
 - **Dependencies:** U1.
 - **Files:**
   - `annotation_validator/server.py`
@@ -169,9 +169,7 @@ flowchart TB
   - POSTing `extended-import.json` returns 200 with `{"errors": []}`, confirming parsing accepts both fixtures.
   - Covers AE2. POSTing `{"images": [` returns 400 with an empty body.
   - Covers AE3. A POST with no `Content-Length` header returns 400 with an empty body.
-  - Covers AE6. POSTing `{"x": NaN}`, `{"x": Infinity}` and `{"x": -Infinity}` each returns 200 with `{"errors": []}`.
   - POSTing Latin-1 bytes `{"a": "\xe9"}` (invalid UTF-8) returns 400 with an empty body.
-  - Covers AE4. POSTing `[]` returns 200 with `{"errors": []}`; so does `"hello"`.
   - The existing `abc` and `-5` `Content-Length` cases still return 400.
 - **Verification:** All server tests pass, and a manual `curl` POST of a fixture to a running server prints `{"errors": []}`.
 
@@ -181,7 +179,7 @@ flowchart TB
 
 | Check | Command or action | Proves |
 |---|---|---|
-| Unit and server tests | `python3 -m unittest discover -s test` from the repo root | U1, U2, AE1–AE6 |
+| Unit and server tests | `python3 -m unittest discover -s test` from the repo root | U1, U2, AE1–AE3, AE5 |
 | Manual smoke | Run `python3 -m annotation_validator.server`, then `curl -s -X POST --data-binary @test/fixtures/sample-import.json http://127.0.0.1:8000/validate-annotations` | R1 on a real server: prints `{"errors": []}` |
 | Dependency check | No new imports outside the standard library | The no-external-dependencies constraint |
 

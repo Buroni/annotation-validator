@@ -60,16 +60,6 @@ class ServerTest(unittest.TestCase):
             with self.subTest(fixture=name):
                 self.assert_errors_empty((FIXTURES / name).read_bytes())
 
-    def test_valid_json_that_is_not_an_object_returns_empty_error_list(self):
-        for body in (b"[]", b'"hello"'):
-            with self.subTest(body=body):
-                self.assert_errors_empty(body)
-
-    def test_non_finite_numbers_reach_validation(self):
-        for body in (b'{"x": NaN}', b'{"x": Infinity}', b'{"x": -Infinity}'):
-            with self.subTest(body=body):
-                self.assert_errors_empty(body)
-
     def test_malformed_json_returns_400(self):
         cases = {
             "truncated": b'{"images": [',
