@@ -1,5 +1,3 @@
-"""Stdlib HTTP server exposing POST /validate-annotations."""
-
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 VALIDATE_PATH = "/validate-annotations"
