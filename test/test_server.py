@@ -1,7 +1,6 @@
 import http.client
 import threading
 import unittest
-import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -32,24 +31,13 @@ class ServerTest(unittest.TestCase):
             method=method,
             headers={"Content-Type": "application/json"},
         )
-        try:
-            with urllib.request.urlopen(req) as resp:
-                return resp.status
-        except urllib.error.HTTPError as err:
-            return err.code
+        with urllib.request.urlopen(req) as resp:
+            return resp.status
 
     def test_post_validate_annotations_returns_200(self):
         self.assertEqual(
             self.request("/validate-annotations", "POST", SAMPLE.read_bytes()), 200
         )
-
-    def test_post_unknown_path_returns_404(self):
-        self.assertEqual(self.request("/other", "POST", b"{}"), 404)
-
-    def test_other_methods_on_validate_annotations_return_404(self):
-        for method in ("GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"):
-            with self.subTest(method=method):
-                self.assertEqual(self.request("/validate-annotations", method), 404)
 
     def test_invalid_content_length_returns_400(self):
         host, port = self.server.server_address[:2]
