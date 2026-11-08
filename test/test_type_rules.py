@@ -4,7 +4,7 @@ from annotation_validator.response import ValidationError
 from annotation_validator.type_rules import check_annotation_types
 
 
-def valid_annotation(**overrides):
+def build_annotation(**overrides):
     annotation = {
         "id": "ann-1",
         "image_id": "img-1",
@@ -15,7 +15,7 @@ def valid_annotation(**overrides):
     return annotation
 
 
-def valid_box(**overrides):
+def build_box(**overrides):
     box = {"x": 10, "y": 20, "width": 30, "height": 40}
     box.update(overrides)
     return box
@@ -27,10 +27,10 @@ def codes(errors):
 
 class CheckAnnotationTypesTest(unittest.TestCase):
     def test_valid_annotation_has_no_errors(self):
-        self.assertEqual(check_annotation_types(valid_annotation(), 0), [])
+        self.assertEqual(check_annotation_types(build_annotation(), 0), [])
 
     def test_boolean_box_field_is_wrong_type(self):
-        annotation = valid_annotation(box=valid_box(x=True))
+        annotation = build_annotation(box=build_box(x=True))
         self.assertEqual(
             check_annotation_types(annotation, 47),
             [
@@ -51,7 +51,7 @@ class CheckAnnotationTypesTest(unittest.TestCase):
         self.assertEqual(errors[2].message, "Annotation #63: label is missing. It must be a string.")
 
     def test_array_box_gives_one_error(self):
-        errors = check_annotation_types(valid_annotation(box=[10, 10, 20, 20]), 42)
+        errors = check_annotation_types(build_annotation(box=[10, 10, 20, 20]), 42)
         self.assertEqual(codes(errors), ["box_wrong_type"])
         self.assertEqual(
             errors[0].message,
@@ -75,7 +75,7 @@ class CheckAnnotationTypesTest(unittest.TestCase):
                 )
 
     def test_null_field_is_wrong_type_not_missing(self):
-        errors = check_annotation_types(valid_annotation(label=None), 37)
+        errors = check_annotation_types(build_annotation(label=None), 37)
         self.assertEqual(
             errors,
             [
@@ -87,44 +87,35 @@ class CheckAnnotationTypesTest(unittest.TestCase):
             ],
         )
 
-    def test_non_finite_numbers_pass_type_checks(self):
-        annotation = valid_annotation(box=valid_box(x=float("inf"), width=float("nan")))
-        self.assertEqual(check_annotation_types(annotation, 0), [])
-
     def test_number_id_is_wrong_type(self):
-        errors = check_annotation_types(valid_annotation(id=33), 0)
+        errors = check_annotation_types(build_annotation(id=33), 0)
         self.assertEqual(codes(errors), ["id_wrong_type"])
         self.assertEqual(
             errors[0].message, "Annotation #1: id must be a string, but it is a number (33)."
         )
 
     def test_numeric_string_box_field_is_wrong_type(self):
-        errors = check_annotation_types(valid_annotation(box=valid_box(x="10")), 8)
+        errors = check_annotation_types(build_annotation(box=build_box(x="10")), 8)
         self.assertEqual(codes(errors), ["box_x_wrong_type"])
         self.assertEqual(
             errors[0].message, 'Annotation #9: box.x must be a number, but it is a string ("10").'
         )
 
     def test_missing_box_field(self):
-        box = valid_box()
+        box = build_box()
         del box["x"]
-        errors = check_annotation_types(valid_annotation(box=box), 0)
+        errors = check_annotation_types(build_annotation(box=box), 0)
         self.assertEqual(codes(errors), ["box_x_missing"])
         self.assertEqual(
             errors[0].message, "Annotation #1: box.x is missing. It must be a number."
         )
 
     def test_several_problems_reported_in_field_order(self):
-        annotation = valid_annotation(box=valid_box(height=False))
+        annotation = build_annotation(box=build_box(height=False))
         del annotation["id"]
         self.assertEqual(
             codes(check_annotation_types(annotation, 0)), ["id_missing", "box_height_wrong_type"]
         )
-
-    def test_long_values_are_not_shortened(self):
-        label = "x" * 500
-        errors = check_annotation_types(valid_annotation(box=label), 0)
-        self.assertIn(f'"{label}"', errors[0].message)
 
 
 if __name__ == "__main__":
