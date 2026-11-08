@@ -26,7 +26,7 @@ Add a stdlib-only HTTP server that accepts `POST /validate-annotations` and retu
   - `do_POST` reads and discards `Content-Length` bytes, so the connection is left clean, then sends 200.
   - A malformed or negative `Content-Length` gets a 400.
   - No other `do_<METHOD>` handlers, and no path routing.
-- `make_server(host, port)` returns a `ThreadingHTTPServer`.
+- `make_server(host, port)` returns an `HTTPServer`.
 - `main()` starts it (`python -m annotation_validator.server`, port 8000 by default).
 - **Tests (`test/test_server.py`):** use `unittest`. Call `make_server("127.0.0.1", 0)`, run `serve_forever` in a daemon thread, and call `shutdown()` and `server_close()` in teardown. Use `urllib.request` to check that:
   - a POST of the sample fixture to `/validate-annotations` returns 200;
@@ -38,7 +38,7 @@ Run `python3 -m unittest discover -s test` from the repo root.
 
 ## Decisions
 
-- Use the standard library's `http.server` with `ThreadingHTTPServer` and `BaseHTTPRequestHandler`. The alternatives were `wsgiref` and plain `asyncio`; `http.server` was chosen as the smallest stdlib option that handles requests on threads.
+- Use the standard library's `http.server` with `HTTPServer` and `BaseHTTPRequestHandler`. The alternatives were `wsgiref` and plain `asyncio`; `http.server` was chosen as the smallest stdlib option. Plain `HTTPServer` handles one request at a time, which is enough for a local prototype; `ThreadingHTTPServer` was used first and dropped to keep scope tight. A client that stalls mid-upload blocks the whole server until it finishes or disconnects. Switching back is a one-word change.
 - No external dependencies (Python 3.15 standard library only).
 - Validation stays a pure function, separate from the HTTP handler, so it can be unit-tested against the fixtures without starting a server.
 

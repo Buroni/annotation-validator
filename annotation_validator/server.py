@@ -1,4 +1,4 @@
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer
 
 VALIDATE_PATH = "/validate-annotations"
 
@@ -26,7 +26,7 @@ class Handler(BaseHTTPRequestHandler):
 
 
 def make_server(host="127.0.0.1", port=8000):
-    return ThreadingHTTPServer((host, port), Handler)
+    return HTTPServer((host, port), Handler)
 
 
 def main():
