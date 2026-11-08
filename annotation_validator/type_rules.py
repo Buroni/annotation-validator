@@ -1,31 +1,45 @@
 import json
+from dataclasses import dataclass
 
 from annotation_validator.response import ValidationError
 
 BOX_FIELDS = ("x", "y", "width", "height")
 
 
-def check_annotation_types(annotation, index) -> list[ValidationError]:
-    """Return every type error (rules T1-T6 in docs/data-rules.md) for one annotation."""
+@dataclass(frozen=True)
+class TypeCheckResult:
+    errors: list[ValidationError]
+    failed_fields: frozenset[str]
+
+
+def check_annotation_types(annotation, index) -> TypeCheckResult:
+    """Return every type error (rules T1-T6 in docs/data-rules.md) for one annotation,
+    and the names of the fields that failed, e.g. "label" or "box.x"."""
     if not isinstance(annotation, dict):
-        return [
-            ValidationError(
-                code="annotation_not_object",
-                message=f"Annotation #{index + 1} must be an object, but it is {describe(annotation)}.",
-                index=index,
-            )
-        ]
+        error = ValidationError(
+            code="annotation_not_object",
+            message=f"Annotation #{index + 1} must be an object, but it is {describe(annotation)}.",
+            index=index,
+        )
+        return TypeCheckResult(errors=[error], failed_fields=frozenset())
 
     errors = []
-    errors += check_field(annotation, "id", "string", index, "id")
-    errors += check_field(annotation, "image_id", "string", index, "image_id")
-    errors += check_field(annotation, "label", "string", index, "label")
-    box_errors = check_field(annotation, "box", "object", index, "box")
-    errors += box_errors
-    if "box" in annotation and not box_errors:
+    failed = set()
+
+    def check(container, key, expected, name):
+        field_errors = check_field(container, key, expected, index, name)
+        if field_errors:
+            errors.extend(field_errors)
+            failed.add(name)
+
+    check(annotation, "id", "string", "id")
+    check(annotation, "image_id", "string", "image_id")
+    check(annotation, "label", "string", "label")
+    check(annotation, "box", "object", "box")
+    if "box" not in failed:
         for key in BOX_FIELDS:
-            errors += check_field(annotation["box"], key, "number", index, f"box.{key}")
-    return errors
+            check(annotation["box"], key, "number", f"box.{key}")
+    return TypeCheckResult(errors=errors, failed_fields=frozenset(failed))
 
 
 def check_field(container, key, expected, index, name) -> list[ValidationError]:
