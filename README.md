@@ -17,5 +17,5 @@ curl -X POST http://127.0.0.1:8000/validate-annotations \
 ```
 Returns `200` with `{summary, errors, warnings}`, or `400` for malformed JSON. Rules are documented in `docs/data-rules.md`.
 
-# AI Usage
+## AI Usage
 Claude Opus 5.5 with the `compound-engineering` plugin was used to collaborate on planning, and implement all code in this repo.
