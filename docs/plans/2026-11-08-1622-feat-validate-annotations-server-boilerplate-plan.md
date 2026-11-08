@@ -9,7 +9,7 @@ execution: code
 
 ## Summary
 
-Add a stdlib-only HTTP server that accepts `POST /validate-annotations` and returns 200. Scope is kept minimal: the server does no routing, so a POST to any path returns 200, and other methods get `BaseHTTPRequestHandler`'s default 501. A malformed or negative `Content-Length` returns 400. Stage 1 does not inspect the request body. A placeholder `validate(payload)` function returns no errors and is not yet connected to the handler, so stage 2 only has to fill it in and wire it up.
+Add a stdlib-only HTTP server that accepts `POST /validate-annotations` and returns 200. Scope is kept minimal: the server does no routing, so a POST to any path returns 200, and other methods get `BaseHTTPRequestHandler`'s default 501. A malformed or negative `Content-Length` returns 400. Stage 1 does not inspect the request body. A placeholder `validate(payload)` function returns no errors and is not yet connected to the handler, so later stages only have to type its return value, fill it in and wire it up.
 
 ## Implementation Units
 
@@ -17,7 +17,7 @@ Add a stdlib-only HTTP server that accepts `POST /validate-annotations` and retu
 
 - **Files:** `annotation_validator/__init__.py`, `annotation_validator/validate.py`
 - `validate(payload) -> list` returns `[]` for now and imports nothing from the HTTP layer.
-- **Tests (`test/test_validate.py`):** load `test/fixtures/sample-import.json` and `test/fixtures/extended-import.json` with `json.load`, and check that `validate` returns a list. This sets up the fixture-loading pattern stage 2 will use.
+- **Tests (`test/test_validate.py`):** load `test/fixtures/sample-import.json` and `test/fixtures/extended-import.json` with `json.load`, and check that `validate` returns a list. This sets up the fixture-loading pattern the validation stage will use.
 
 ### 2. HTTP server
 
@@ -42,9 +42,21 @@ Run `python3 -m unittest discover -s test` from the repo root.
 - No external dependencies (Python 3.15 standard library only).
 - Validation stays a pure function, separate from the HTTP handler, so it can be unit-tested against the fixtures without starting a server.
 
-## Deferred to Stage 2
+## Later Stages
+
+### Stage 2: typed response shape
+
+- Define the response as types: a `ValidationError` (for example `annotation_id`, `field`, `code`, `message`) and a `ValidationResponse` (for example `valid: bool`, `errors: list[ValidationError]`).
+- Type `validate()` to return `list[ValidationError]`; it can keep returning `[]`.
+- Open choice: `TypedDict` (serializes straight through `json.dumps`) or frozen `dataclass` (needs `dataclasses.asdict()`).
+- Out of scope: the request contract and status codes.
+
+### Stage 3: validation rules
+
+- Type checks; content checks such as an `image_id` that matches no image or a label not in `allowed_labels`; and bounds checks such as a box running past the image's width or height.
+
+### Not yet assigned to a stage
 
 - Routing: returning 404 for unknown paths and 404/405 for other methods. Both were built and then removed during stage 1 to keep scope tight.
 - Returning 411 when a POST has no `Content-Length` (currently read as an empty body).
-- The response for invalid files: a 200 with a list of errors, or a 4xx.
-- The validation rules themselves: type checks; content checks such as an `image_id` that matches no image or a label not in `allowed_labels`; and bounds checks such as a box running past the image's width or height.
+- The status code for invalid files: a 200 with a list of errors, or a 4xx.
