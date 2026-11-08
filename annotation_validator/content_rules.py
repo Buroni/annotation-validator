@@ -104,7 +104,7 @@ def check_annotation_content(annotation, index, failed_fields, lookups) -> list[
 def check_box_number(key, value):
     """Return (code, message) when a box number breaks C2/C3, else None."""
     name = f"box.{key}"
-    if not math.isfinite(value):
+    if isinstance(value, float) and not math.isfinite(value):
         return f"box_{key}_not_finite", f"{name} must be a finite number, but it is {show(value)}."
     if key in ("x", "y") and value < 0:
         return f"box_{key}_negative", f"{name} must be 0 or greater, but it is {show(value)}."

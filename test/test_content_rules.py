@@ -162,6 +162,11 @@ class CheckAnnotationContentTest(unittest.TestCase):
         annotation = build_annotation(box=build_box(x=float("-inf")))
         self.assertEqual(codes(check(annotation)), ["box_x_not_finite"])
 
+    def test_huge_integer_box_number_is_finite(self):
+        huge = 10**400
+        annotation = build_annotation(box=build_box(x=huge))
+        self.assertEqual(codes(check(annotation)), ["box_out_of_bounds"])
+
     def test_label_must_match_exactly(self):
         self.assertEqual(
             check(build_annotation(label="Car"), 3),
