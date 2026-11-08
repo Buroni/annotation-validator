@@ -2,7 +2,6 @@ import json
 from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
 
-from annotation_validator.response import ValidationResponse
 from annotation_validator.validate import validate
 
 VALIDATE_PATH = "/validate-annotations"
@@ -40,8 +39,7 @@ class Handler(BaseHTTPRequestHandler):
         except ValueError:
             self._send_bad_request()
             return
-        response = ValidationResponse(errors=tuple(validate(payload)))
-        self._send_json(json.dumps(asdict(response)).encode("ascii"))
+        self._send_json(json.dumps(asdict(validate(payload))).encode("ascii"))
 
 
 def make_server(host="127.0.0.1", port=8000):
