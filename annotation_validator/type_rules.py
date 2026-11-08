@@ -29,7 +29,6 @@ def check_annotation_types(annotation, index) -> list[ValidationError]:
 
 
 def check_field(container, key, expected, index, name) -> list[ValidationError]:
-    """Return a missing or wrong-type error for one field, or no error."""
     code = name.replace(".", "_")
     position = index + 1
     if key not in container:
@@ -54,7 +53,6 @@ def check_field(container, key, expected, index, name) -> list[ValidationError]:
 
 
 def json_type(value) -> str:
-    # bool is checked before numbers because bool is a subclass of int.
     if value is None:
         return "null"
     if isinstance(value, bool):
