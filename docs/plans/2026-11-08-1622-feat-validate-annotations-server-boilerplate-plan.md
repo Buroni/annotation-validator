@@ -9,7 +9,7 @@ execution: code
 
 ## Summary
 
-Add a stdlib-only HTTP server with one route. `POST /validate-annotations` returns 200, and every other path or method returns 404. Stage 1 does not read or check the request body. The handler calls a placeholder `validate(payload)` function that returns no errors, so stage 2 only has to fill in that function.
+Add a stdlib-only HTTP server that accepts `POST /validate-annotations` and returns 200. Scope is kept minimal: the server does no routing, so a POST to any path returns 200, and other methods get `BaseHTTPRequestHandler`'s default 501. A malformed or negative `Content-Length` returns 400. Stage 1 does not inspect the request body. A placeholder `validate(payload)` function returns no errors and is not yet connected to the handler, so stage 2 only has to fill it in and wire it up.
 
 ## Implementation Units
 
@@ -23,15 +23,14 @@ Add a stdlib-only HTTP server with one route. `POST /validate-annotations` retur
 
 - **Files:** `annotation_validator/server.py`
 - A `BaseHTTPRequestHandler` subclass:
-  - `do_POST` sends 200 when `self.path == "/validate-annotations"` and 404 otherwise.
-  - `do_GET`, `do_PUT` and `do_DELETE` send 404, so other methods get a 404 instead of the default 501.
-  - Reads and discards `Content-Length` bytes, so the connection is left clean.
+  - `do_POST` reads and discards `Content-Length` bytes, so the connection is left clean, then sends 200.
+  - A malformed or negative `Content-Length` gets a 400.
+  - No other `do_<METHOD>` handlers, and no path routing.
 - `make_server(host, port)` returns a `ThreadingHTTPServer`.
 - `main()` starts it (`python -m annotation_validator.server`, port 8000 by default).
 - **Tests (`test/test_server.py`):** use `unittest`. Call `make_server("127.0.0.1", 0)`, run `serve_forever` in a daemon thread, and call `shutdown()` and `server_close()` in teardown. Use `urllib.request` to check that:
   - a POST of the sample fixture to `/validate-annotations` returns 200;
-  - a POST to `/other` returns 404;
-  - a GET to `/validate-annotations` returns 404 (urllib raises `HTTPError`, so check its `.code`).
+  - a POST with a `Content-Length` of `abc` or `-5` returns 400.
 
 ## Verification
 
@@ -45,5 +44,7 @@ Run `python3 -m unittest discover -s test` from the repo root.
 
 ## Deferred to Stage 2
 
+- Routing: returning 404 for unknown paths and 404/405 for other methods. Both were built and then removed during stage 1 to keep scope tight.
+- Returning 411 when a POST has no `Content-Length` (currently read as an empty body).
 - The response for invalid files: a 200 with a list of errors, or a 4xx.
 - The validation rules themselves: type checks; content checks such as an `image_id` that matches no image or a label not in `allowed_labels`; and bounds checks such as a box running past the image's width or height.
