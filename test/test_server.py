@@ -58,9 +58,36 @@ class ServerTest(unittest.TestCase):
             {
                 "errors": [
                     {
+                        "code": "image_id_unknown",
+                        "message": 'Annotation #3: image_id "frame-missing" does not match any image.',
+                        "index": 2,
+                    },
+                    {
+                        "code": "label_not_allowed",
+                        "message": 'Annotation #4: label "unsupported-label" is not allowed. It must be '
+                        'one of: "instrument", "grasper", "tissue", "organ", "reference_marker".',
+                        "index": 3,
+                    },
+                    {
                         "code": "label_missing",
                         "message": "Annotation #5: label is missing. It must be a string.",
                         "index": 4,
+                    },
+                    {
+                        "code": "box_x_negative",
+                        "message": "Annotation #6: box.x must be 0 or greater, but it is -5.",
+                        "index": 5,
+                    },
+                    {
+                        "code": "box_width_not_positive",
+                        "message": "Annotation #7: box.width must be greater than 0, but it is 0.",
+                        "index": 6,
+                    },
+                    {
+                        "code": "box_out_of_bounds",
+                        "message": "Annotation #8: box (x 180, y 80, width 30, height 20) does not fit "
+                        'inside image "frame-002" (width 200, height 100).',
+                        "index": 7,
                     },
                     {
                         "code": "box_x_wrong_type",

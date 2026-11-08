@@ -17,19 +17,46 @@ class ValidateTest(unittest.TestCase):
         errors = validate(load_fixture("sample-import.json"))
         self.assertEqual(
             [(error.code, error.index) for error in errors],
-            [("label_missing", 4), ("box_x_wrong_type", 8)],
+            [
+                ("image_id_unknown", 2),
+                ("label_not_allowed", 3),
+                ("label_missing", 4),
+                ("box_x_negative", 5),
+                ("box_width_not_positive", 6),
+                ("box_out_of_bounds", 7),
+                ("box_x_wrong_type", 8),
+            ],
         )
 
-    def test_extended_fixture_flags_each_structurally_broken_record(self):
+    def test_extended_fixture_flags_each_broken_record(self):
         errors = validate(load_fixture("extended-import.json"))
         indices = [error.index for error in errors]
-        self.assertEqual(
-            set(indices),
-            {29, 31, 32, 34, 35, 37, 38, 40, 41, 42, 43, 44, 45, 46, 47, 48, 58, 59, 60, 61, 62},
-        )
-        self.assertEqual(indices.count(62), 4)
+        type_error_indices = {29, 31, 32, 34, 35, 37, 38, *range(40, 49), *range(58, 63)}
+        content_error_indices = {30, 33, 36, 39, *range(49, 58)}
+        self.assertEqual(set(indices), type_error_indices | content_error_indices)
         self.assertEqual(indices, sorted(indices))
 
+    def test_extended_fixture_content_errors(self):
+        errors = validate(load_fixture("extended-import.json"))
+        type_suffixes = ("_missing", "_wrong_type", "annotation_not_object")
+        self.assertEqual(
+            [(error.code, error.index) for error in errors if not error.code.endswith(type_suffixes)],
+            [
+                ("id_empty", 30),
+                ("image_id_unknown", 33),
+                ("label_not_allowed", 36),
+                ("label_not_allowed", 39),
+                ("box_x_negative", 49),
+                ("box_y_negative", 50),
+                ("box_width_not_positive", 51),
+                ("box_height_not_positive", 52),
+                ("box_width_not_positive", 53),
+                ("box_height_not_positive", 54),
+                ("box_out_of_bounds", 55),
+                ("box_out_of_bounds", 56),
+                ("box_x_negative", 57),
+            ],
+        )
 
 if __name__ == "__main__":
     unittest.main()

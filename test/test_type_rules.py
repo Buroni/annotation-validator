@@ -27,12 +27,12 @@ def codes(errors):
 
 class CheckAnnotationTypesTest(unittest.TestCase):
     def test_valid_annotation_has_no_errors(self):
-        self.assertEqual(check_annotation_types(build_annotation(), 0), [])
+        self.assertEqual(check_annotation_types(build_annotation(), 0).errors, [])
 
     def test_boolean_box_field_is_wrong_type(self):
         annotation = build_annotation(box=build_box(x=True))
         self.assertEqual(
-            check_annotation_types(annotation, 47),
+            check_annotation_types(annotation, 47).errors,
             [
                 ValidationError(
                     code="box_x_wrong_type",
@@ -43,7 +43,7 @@ class CheckAnnotationTypesTest(unittest.TestCase):
         )
 
     def test_empty_annotation_reports_each_missing_field_once(self):
-        errors = check_annotation_types({}, 62)
+        errors = check_annotation_types({}, 62).errors
         self.assertEqual(
             codes(errors), ["id_missing", "image_id_missing", "label_missing", "box_missing"]
         )
@@ -51,7 +51,7 @@ class CheckAnnotationTypesTest(unittest.TestCase):
         self.assertEqual(errors[2].message, "Annotation #63: label is missing. It must be a string.")
 
     def test_array_box_gives_one_error(self):
-        errors = check_annotation_types(build_annotation(box=[10, 10, 20, 20]), 42)
+        errors = check_annotation_types(build_annotation(box=[10, 10, 20, 20]), 42).errors
         self.assertEqual(codes(errors), ["box_wrong_type"])
         self.assertEqual(
             errors[0].message,
@@ -70,12 +70,12 @@ class CheckAnnotationTypesTest(unittest.TestCase):
         for name, (annotation, message) in cases.items():
             with self.subTest(case=name):
                 self.assertEqual(
-                    check_annotation_types(annotation, 58),
+                    check_annotation_types(annotation, 58).errors,
                     [ValidationError(code="annotation_not_object", message=message, index=58)],
                 )
 
     def test_null_field_is_wrong_type_not_missing(self):
-        errors = check_annotation_types(build_annotation(label=None), 37)
+        errors = check_annotation_types(build_annotation(label=None), 37).errors
         self.assertEqual(
             errors,
             [
@@ -88,14 +88,14 @@ class CheckAnnotationTypesTest(unittest.TestCase):
         )
 
     def test_number_id_is_wrong_type(self):
-        errors = check_annotation_types(build_annotation(id=33), 0)
+        errors = check_annotation_types(build_annotation(id=33), 0).errors
         self.assertEqual(codes(errors), ["id_wrong_type"])
         self.assertEqual(
             errors[0].message, "Annotation #1: id must be a string, but it is a number (33)."
         )
 
     def test_numeric_string_box_field_is_wrong_type(self):
-        errors = check_annotation_types(build_annotation(box=build_box(x="10")), 8)
+        errors = check_annotation_types(build_annotation(box=build_box(x="10")), 8).errors
         self.assertEqual(codes(errors), ["box_x_wrong_type"])
         self.assertEqual(
             errors[0].message, 'Annotation #9: box.x must be a number, but it is a string ("10").'
@@ -104,7 +104,7 @@ class CheckAnnotationTypesTest(unittest.TestCase):
     def test_missing_box_field(self):
         box = build_box()
         del box["x"]
-        errors = check_annotation_types(build_annotation(box=box), 0)
+        errors = check_annotation_types(build_annotation(box=box), 0).errors
         self.assertEqual(codes(errors), ["box_x_missing"])
         self.assertEqual(
             errors[0].message, "Annotation #1: box.x is missing. It must be a number."
@@ -114,8 +114,22 @@ class CheckAnnotationTypesTest(unittest.TestCase):
         annotation = build_annotation(box=build_box(height=False))
         del annotation["id"]
         self.assertEqual(
-            codes(check_annotation_types(annotation, 0)), ["id_missing", "box_height_wrong_type"]
+            codes(check_annotation_types(annotation, 0).errors),
+            ["id_missing", "box_height_wrong_type"],
         )
+
+    def test_valid_annotation_has_no_failed_fields(self):
+        self.assertEqual(check_annotation_types(build_annotation(), 0).failed_fields, frozenset())
+
+    def test_failed_fields_name_each_field_that_failed(self):
+        cases = {
+            "boolean box.x": (build_annotation(box=build_box(x=True)), {"box.x"}),
+            "empty object": ({}, {"id", "image_id", "label", "box"}),
+            "array box": (build_annotation(box=[10, 10, 20, 20]), {"box"}),
+        }
+        for name, (annotation, failed) in cases.items():
+            with self.subTest(case=name):
+                self.assertEqual(check_annotation_types(annotation, 0).failed_fields, failed)
 
 
 if __name__ == "__main__":
