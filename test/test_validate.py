@@ -13,10 +13,10 @@ def load_fixture(name):
 
 
 class ValidateTest(unittest.TestCase):
-    def test_returns_list_for_each_fixture(self):
+    def test_returns_no_errors_for_each_fixture(self):
         for name in ("sample-import.json", "extended-import.json"):
             with self.subTest(fixture=name):
-                self.assertIsInstance(validate(load_fixture(name)), list)
+                self.assertEqual(validate(load_fixture(name)), [])
 
 
 if __name__ == "__main__":
