@@ -1,28 +1,47 @@
+import json
+from dataclasses import asdict
 from http.server import BaseHTTPRequestHandler, HTTPServer
+
+from annotation_validator.response import ValidationResponse
+from annotation_validator.validate import validate
 
 VALIDATE_PATH = "/validate-annotations"
 
 
 class Handler(BaseHTTPRequestHandler):
-    def _discard_body(self):
-        """Read and drop the request body; return False if Content-Length is invalid."""
+    def _read_body(self):
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
-            return False
+            return None
         if length < 0:
-            return False
-        if length:
-            self.rfile.read(length)
-        return True
+            return None
+        return self.rfile.read(length)
 
-    def _send_status(self, status):
-        self.send_response(status)
+    def _send_bad_request(self):
+        self.send_response(400)
         self.send_header("Content-Length", "0")
         self.end_headers()
 
+    def _send_json(self, body):
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
     def do_POST(self):
-        self._send_status(200 if self._discard_body() else 400)
+        body = self._read_body()
+        if body is None:
+            self._send_bad_request()
+            return
+        try:
+            payload = json.loads(body)
+        except ValueError:
+            self._send_bad_request()
+            return
+        response = ValidationResponse(errors=tuple(validate(payload)))
+        self._send_json(json.dumps(asdict(response)).encode("ascii"))
 
 
 def make_server(host="127.0.0.1", port=8000):
