@@ -13,17 +13,17 @@ execution: code
 ## Goal Capsule
 
 - **Objective:** The front-end can build its error display against the real response from `POST /validate-annotations`: a typed, flat list of user-friendly validation errors, empty until the stage 3 rules exist.
-- **Means:** Frozen dataclass response types returned as JSON by the existing stdlib handler, which now parses the upload strictly (KTD1, KTD3).
+- **Means:** Frozen dataclass response types returned as JSON by the existing stdlib handler, which now parses the upload as JSON (KTD1, KTD3).
 - **Product authority:** This plan covers stage 2 of the annotation-validator prototype only. Stage 3 (the validation rules) and warnings are not active scope.
 - **Execution profile:** Two units, U1 then U2; standard library only; existing `unittest` suite.
-- **Stop conditions:** Stop and ask if any requirement would need an external dependency, or if strict parsing turns out to reject a fixture file.
+- **Stop conditions:** Stop and ask if any requirement would need an external dependency, or if parsing turns out to reject a fixture file.
 - **Open blockers:** None.
 
 ---
 
 ## Product Contract
 
-**Product Contract preservation:** changed: R7 (strict JSON: `NaN`, `Infinity` and `-Infinity` are rejected, decided by the user during planning), AE6 added; Outstanding Questions resolved in place by KTD1 and KTD2.
+**Product Contract preservation:** changed: R7 and AE6 (`NaN`, `Infinity` and `-Infinity` parse and reach `validate()`; briefly rejected during planning, reversed by the user during implementation); Outstanding Questions resolved in place by KTD1 and KTD2.
 
 ### Summary
 
@@ -44,7 +44,7 @@ Validation errors come in two internal kinds: type errors (a field has the wrong
 - **Records are named by 1-based position only.** One rule covers missing, empty, wrong-type and duplicate `id`s. Governs R5. (session-settled: user-approved — chosen over id-with-position-fallback and over id plus position: simplest single rule; adding the id to the text later does not change the shape)
 - **Stage 2 returns the real body.** The front-end can integrate now. Governs R1, R7. (session-settled: user-directed — chosen over defining types only and keeping an empty 200)
 - **Malformed JSON is a 400 with no body.** Governs R7. (session-settled: user-directed — chosen over a 200 with one error, and over leaving it undefined: a malformed upload is a bad request, like an invalid `Content-Length`)
-- **Strict JSON only.** `NaN`, `Infinity` and `-Infinity` count as malformed. Governs R7. (session-settled: user-directed — chosen over accepting them as Python's parser does by default: strict JSON does not allow them)
+- **`NaN`, `Infinity` and `-Infinity` are not a malformed body.** They parse as Python's default parser allows and reach `validate()`; a non-finite value in a numeric field is a stage 3 field error. Governs R7. (session-settled: user-directed — reversed from rejecting the whole body with a 400: the concern is a numeric field holding one of these values, which belongs with the other field errors)
 - **The list is wrapped in an object, with no `valid` flag.** Wrapping lets warnings arrive later as a sibling list; an empty error list already means the file passed. Governs R1, R4.
 
 ### Requirements
@@ -63,7 +63,7 @@ Validation errors come in two internal kinds: type errors (a field has the wrong
 
 **Request handling**
 
-- R7. The handler parses the request body as strict JSON before calling `validate()`; a body that is not valid JSON returns 400 with no body, including an empty body, undecodable bytes, and the non-standard values `NaN`, `Infinity` and `-Infinity`.
+- R7. The handler parses the request body as JSON before calling `validate()`; a body that is not valid JSON returns 400 with no body, including an empty body and undecodable bytes. `NaN`, `Infinity` and `-Infinity` are accepted at parse time.
 - R8. Valid JSON that is not an object (for example `[]` or `"hello"`) is not a 400; it reaches `validate()`, whose stage 3 rules report it as a validation error.
 - R9. In stage 2, `validate()` returns an empty list for every input.
 
@@ -74,7 +74,7 @@ Validation errors come in two internal kinds: type errors (a field has the wrong
 - AE3. **Covers R7.** **Given** a POST with no `Content-Length` header, **when** the body is read as empty, **then** the response is 400 with no body (stage 1 returned 200 here).
 - AE4. **Covers R8, R9.** **Given** the body `[]`, **when** it is POSTed, **then** the response is 200 with an empty error list in stage 2.
 - AE5. **Covers R2, R3.** **Given** an error built with a code and a message inside a response, **when** it is serialized, **then** the JSON holds exactly those values, and building an error without a message fails immediately.
-- AE6. **Covers R7.** **Given** a body such as `{"x": NaN}`, `{"x": Infinity}` or `{"x": -Infinity}`, **when** it is POSTed, **then** the response is 400 with no body.
+- AE6. **Covers R7, R9.** **Given** a body such as `{"x": NaN}`, `{"x": Infinity}` or `{"x": -Infinity}`, **when** it is POSTed, **then** the response is 200 with an empty error list in stage 2.
 
 ### Scope Boundaries
 
@@ -98,7 +98,7 @@ Validation errors come in two internal kinds: type errors (a field has the wrong
 
 - KTD1. **Wire names match field names: `{"errors": [{"code": ..., "message": ...}]}`.** Dataclass field names are the JSON keys, so serialization needs no mapping layer. The response stores its errors as a tuple so that "frozen" holds all the way down; `validate()` still returns a list per R3 and the handler converts it. Covers R1, R2, R3.
 - KTD2. **Types live in a new `annotation_validator/response.py`.** `validate.py` imports the error type from there, and the server imports both, so the HTTP layer and the validator share one definition without importing each other. `code` is a plain `str` until stage 3 defines a catalogue.
-- KTD3. **Parse with `json.loads` on the raw bytes, plus a `parse_constant` hook that raises `ValueError`.** The hook is called only for `NaN`, `Infinity` and `-Infinity`, so raising there rejects exactly those values. Catching `ValueError` covers the hook's error as well as `JSONDecodeError` and `UnicodeDecodeError`; any other exception type from the hook would escape the catch and drop the connection instead of returning 400. Byte input keeps the standard library's encoding detection: UTF-8 (with or without a BOM), UTF-16 and UTF-32 parse; anything else is undecodable and gets the 400. Implements R7 and its Key Decisions.
+- KTD3. **Parse with plain `json.loads` on the raw bytes.** Catching `ValueError` covers both `JSONDecodeError` and `UnicodeDecodeError`. Byte input keeps the standard library's encoding detection: UTF-8 (with or without a BOM), UTF-16 and UTF-32 parse; anything else is undecodable and gets the 400. Implements R7 and its Key Decisions.
 - KTD4. **Serialize with `dataclasses.asdict` then `json.dumps` with default settings.** The default `ensure_ascii=True` keeps the body ASCII, so a lone surrogate in a future message cannot fail encoding. The 200 sends `Content-Type: application/json` and an exact `Content-Length`.
 - KTD5. **Replace the read-and-discard helper with read-and-return.** It returns the body bytes, or a "bad length" signal that keeps the existing 400 for a malformed or negative `Content-Length`. A missing header still reads as empty bytes, which then fail parsing (R7, AE3).
 
@@ -111,8 +111,8 @@ flowchart TB
   A[POST any path] --> B{Content-Length valid?}
   B -->|no| X1[400, no body]
   B -->|yes| C[Read body bytes]
-  C --> D{Strict JSON parse OK?}
-  D -->|no: empty, truncated, undecodable, NaN/Infinity| X2[400, no body]
+  C --> D{JSON parse OK?}
+  D -->|no: empty, truncated, undecodable| X2[400, no body]
   D -->|yes: object, array, string, number...| E["validate(payload) -> list of errors"]
   E --> F["Response(errors) -> asdict -> json.dumps"]
   F --> G[200, application/json]
@@ -149,9 +149,9 @@ flowchart TB
   - `validate()` returns `[]` for `sample-import.json` and for `extended-import.json`.
 - **Verification:** The new and updated tests pass, and nothing in `annotation_validator/` depends on anything outside the standard library.
 
-### U2. Strict parsing and JSON response in the handler
+### U2. JSON parsing and response in the handler
 
-- **Goal:** The handler parses the body strictly, calls `validate()`, and returns the typed response as JSON, or a bodiless 400 for malformed input.
+- **Goal:** The handler parses the body as JSON, calls `validate()`, and returns the typed response as JSON, or a bodiless 400 for malformed input.
 - **Requirements:** R1, R7, R8; KTD3, KTD4, KTD5; AE1, AE2, AE3, AE4, AE6.
 - **Dependencies:** U1.
 - **Files:**
@@ -166,10 +166,10 @@ flowchart TB
 - **Patterns to follow:** `test_invalid_content_length_returns_400` in `test/test_server.py` for raw `http.client` requests; the server-on-port-0 fixture in `ServerTest.setUp`.
 - **Test scenarios:**
   - Covers AE1. POSTing `sample-import.json` returns 200, `Content-Type: application/json`, and a body that parses to `{"errors": []}`.
-  - POSTing `extended-import.json` returns 200 with `{"errors": []}`, confirming strict parsing accepts both fixtures.
+  - POSTing `extended-import.json` returns 200 with `{"errors": []}`, confirming parsing accepts both fixtures.
   - Covers AE2. POSTing `{"images": [` returns 400 with an empty body.
   - Covers AE3. A POST with no `Content-Length` header returns 400 with an empty body.
-  - Covers AE6. POSTing `{"x": NaN}`, `{"x": Infinity}` and `{"x": -Infinity}` each returns 400 with an empty body.
+  - Covers AE6. POSTing `{"x": NaN}`, `{"x": Infinity}` and `{"x": -Infinity}` each returns 200 with `{"errors": []}`.
   - POSTing Latin-1 bytes `{"a": "\xe9"}` (invalid UTF-8) returns 400 with an empty body.
   - Covers AE4. POSTing `[]` returns 200 with `{"errors": []}`; so does `"hello"`.
   - The existing `abc` and `-5` `Content-Length` cases still return 400.

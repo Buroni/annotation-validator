@@ -8,14 +8,6 @@ from annotation_validator.validate import validate
 VALIDATE_PATH = "/validate-annotations"
 
 
-def _reject_constant(name):
-    raise ValueError(f"non-standard JSON constant: {name}")
-
-
-def _parse_strict_json(body):
-    return json.loads(body, parse_constant=_reject_constant)
-
-
 class Handler(BaseHTTPRequestHandler):
     def _read_body(self):
         try:
@@ -44,7 +36,7 @@ class Handler(BaseHTTPRequestHandler):
             self._send_bad_request()
             return
         try:
-            payload = _parse_strict_json(body)
+            payload = json.loads(body)
         except ValueError:
             self._send_bad_request()
             return

@@ -65,12 +65,14 @@ class ServerTest(unittest.TestCase):
             with self.subTest(body=body):
                 self.assert_errors_empty(body)
 
+    def test_non_finite_numbers_reach_validation(self):
+        for body in (b'{"x": NaN}', b'{"x": Infinity}', b'{"x": -Infinity}'):
+            with self.subTest(body=body):
+                self.assert_errors_empty(body)
+
     def test_malformed_json_returns_400(self):
         cases = {
             "truncated": b'{"images": [',
-            "NaN": b'{"x": NaN}',
-            "Infinity": b'{"x": Infinity}',
-            "-Infinity": b'{"x": -Infinity}',
             "invalid UTF-8": b'{"a": "\xe9"}',
         }
         for name, body in cases.items():
