@@ -5,9 +5,16 @@ VALIDATE_PATH = "/validate-annotations"
 
 class Handler(BaseHTTPRequestHandler):
     def _discard_body(self):
-        length = int(self.headers.get("Content-Length") or 0)
+        """Read and drop the request body; return False if Content-Length is invalid."""
+        try:
+            length = int(self.headers.get("Content-Length") or 0)
+        except ValueError:
+            return False
+        if length < 0:
+            return False
         if length:
             self.rfile.read(length)
+        return True
 
     def _send_status(self, status):
         self.send_response(status)
@@ -15,12 +22,15 @@ class Handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_POST(self):
-        self._discard_body()
-        self._send_status(200 if self.path == VALIDATE_PATH else 404)
+        if not self._discard_body():
+            self._send_status(400)
+        elif self.path == VALIDATE_PATH:
+            self._send_status(200)
+        else:
+            self._send_status(404)
 
     def _not_found(self):
-        self._discard_body()
-        self._send_status(404)
+        self._send_status(404 if self._discard_body() else 400)
 
     do_GET = do_HEAD = do_PUT = do_PATCH = do_DELETE = do_OPTIONS = _not_found
 

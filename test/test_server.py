@@ -1,3 +1,4 @@
+import http.client
 import threading
 import unittest
 import urllib.error
@@ -49,6 +50,17 @@ class ServerTest(unittest.TestCase):
         for method in ("GET", "HEAD", "PUT", "PATCH", "DELETE", "OPTIONS"):
             with self.subTest(method=method):
                 self.assertEqual(self.request("/validate-annotations", method), 404)
+
+    def test_invalid_content_length_returns_400(self):
+        host, port = self.server.server_address[:2]
+        for value in ("abc", "-5"):
+            with self.subTest(content_length=value):
+                conn = http.client.HTTPConnection(host, port, timeout=2)
+                conn.putrequest("POST", "/validate-annotations")
+                conn.putheader("Content-Length", value)
+                conn.endheaders()
+                self.assertEqual(conn.getresponse().status, 400)
+                conn.close()
 
 
 if __name__ == "__main__":
