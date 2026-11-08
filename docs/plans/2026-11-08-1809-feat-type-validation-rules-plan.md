@@ -73,7 +73,7 @@ The README's deliverable is a report that lets a user "locate an invalid record,
 - AE3. **Covers R3.** **Given** annotation 42 has `"box": [10, 10, 20, 20]`, **when** the file is validated, **then** there is one error saying `box` must be an object but is an array, and no errors for `box.x` through `box.height`.
 - AE4. **Covers R3.** **Given** annotation 58 is `null`, **when** the file is validated, **then** there is exactly one error with `index` 58, saying the annotation must be an object but is `null`.
 - AE5. **Covers R2.** **Given** annotation 37 has `"label": null`, **when** the file is validated, **then** its error is the wrong-type error for `label`, not the missing-field error.
-- AE6. **Covers R1.** **Given** a box field holding `NaN` or `Infinity`, **when** the file is validated, **then** no type error is reported for it.
+- AE6. **Covers R1.** **Given** a box field holding `NaN` or `Infinity`, **when** the file is validated, **then** no type error is reported for it. Not covered by a test: the content-rules stage will change how non-finite values are reported (PR #3 review).
 - AE7. **Covers R1, R4, R5.** **Given** `test/fixtures/sample-import.json`, **when** it is POSTed, **then** the response holds exactly two errors, in this order: `label` missing at `index` 4, then `box.x` wrong type (a string, `"10"`) at `index` 8.
 
 ### Success Criteria
@@ -110,7 +110,7 @@ The README's deliverable is a report that lets a user "locate an invalid record,
   - not an object: `Annotation #59 must be an object, but it is a string ("not-an-annotation-object").`
 
   The position in the message is `index + 1`. Implements R6, R7.
-- KTD4. **Found values are described by their JSON type and their JSON text.** Type names are `null`, `boolean`, `number`, `string`, `array` and `object`, with "a"/"an" as needed. The value is `json.dumps(value, ensure_ascii=False)`, so it shows `true`, `null` and `"10"` in full, with no shortening. `bool` is tested before the number check, so `true` is a boolean, not a number; "number" means `int` or `float` excluding `bool`, so `NaN` and `Infinity` pass T6 (AE6). Implements R2, R6.
+- KTD4. **Found values are described by their JSON type and their JSON text.** Type names are `null`, `boolean`, `number`, `string`, `array` and `object`, with "a"/"an" as needed. The value is `json.dumps(value, ensure_ascii=False)`, so it shows `true`, `null` and `"10"` in full, with no shortening. `bool` is tested before the number check, so `true` is a boolean, not a number; "number" means `int` or `float` excluding `bool`, so `NaN` and `Infinity` pass T6. Implements R2, R6.
 - KTD5. **Tests split by layer.** `test/test_type_rules.py` (new) covers the per-annotation checks with small hand-built records. `test/test_validate.py` checks both fixtures through `validate()`: the sample's exact two errors, and the extended fixture's exact set of record indices with errors. `test/test_server.py` checks the sample's exact errors over HTTP and no longer posts the extended fixture.
 
 ### High-Level Technical Design
@@ -140,7 +140,7 @@ flowchart TB
 ### U1. Per-annotation type checks
 
 - **Goal:** A function that returns every type error for one annotation, with codes, messages and `index` per R2–R7.
-- **Requirements:** R1, R2, R3, R5, R6, R7, R8; KTD2, KTD3, KTD4; AE1–AE6.
+- **Requirements:** R1, R2, R3, R5, R6, R7, R8; KTD2, KTD3, KTD4; AE1–AE5.
 - **Dependencies:** None.
 - **Files:**
   - `annotation_validator/type_rules.py` (new)
@@ -158,7 +158,6 @@ flowchart TB
   - Covers AE3. `box` of `[10, 10, 20, 20]` returns one `box_wrong_type` error naming an array, and no `box_*` field errors.
   - Covers AE4. An annotation of `null`, of a string, and of a list each return exactly one `annotation_not_object` error.
   - Covers AE5. `label` of `null` returns `label_wrong_type` with message ending `but it is null.`, not `label_missing`.
-  - Covers AE6. `box.width` of `float("nan")` and `box.x` of `float("inf")` return no errors.
   - `id` of `33` returns `id_wrong_type` naming a number (`33`).
   - `box.x` of `"10"` returns `box_x_wrong_type` naming a string (`"10"`).
   - `box` missing `x` returns `box_x_missing` only.
@@ -193,7 +192,7 @@ flowchart TB
 
 | Check | Command or action | Proves |
 |---|---|---|
-| Unit and server tests | `python3 -m unittest discover -s test` from the repo root | U1, U2, AE1–AE7 |
+| Unit and server tests | `python3 -m unittest discover -s test` from the repo root | U1, U2, AE1–AE5, AE7 |
 | Manual smoke | Run `python3 -m annotation_validator.server`, then `curl -s -X POST --data-binary @test/fixtures/sample-import.json http://127.0.0.1:8000/validate-annotations` | R6 on a real server: two readable errors |
 | Dependency check | No new imports outside the standard library | The no-external-dependencies constraint |
 
